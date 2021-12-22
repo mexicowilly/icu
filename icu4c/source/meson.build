@@ -14,6 +14,27 @@ unicode_version = run_command(python_exec,
                               meson.current_source_dir() / 'common' / 'unicode' / 'uchar.h',
                               'U_UNICODE_VERSION').stdout().strip()
 
+# C++ compiler
+cpp_compiler = meson.get_compiler('cpp')
+
+# Threads
+thread_dep = dependency('threads')
+
+# Math library
+libm_dep = cpp_compiler.find_library('m', required : false)
+
+# Dl library
+libdl_dep = cpp_compiler.find_library('dl', required : false)
+
+# Endianness: There is a fairly complete check for this in common/unicode/platform.h, but
+# this macro is checked in stubdata/stubdata.cpp, so it must be set here.
+add_global_arguments('-DU_IS_BIG_ENDIAN=' + (build_machine.endian() == 'big' ? '1' : '0'), language : ['cpp', 'c'])
+
+# Validate data packaging
+if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
+  error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
+endif
+
 # Subdirectories
 subdir('stubdata')
 subdir('common')

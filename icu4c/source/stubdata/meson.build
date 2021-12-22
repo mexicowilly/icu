@@ -5,8 +5,10 @@ else
 endif
 data_static_name = 's' + data_shared_name
 
-shared_library(data_shared_name,
-               'stubdata.cpp',
-               version : icu_version)
-static_library(data_static_name,
-               'stubdata.cpp')
+stubdata_shared = shared_library(data_shared_name,
+                                 'stubdata.cpp',
+                                 include_directories : '..' / 'common',
+                                 version : icu_version)
+stubdata_static = static_library(data_static_name,
+                                 'stubdata.cpp',
+                                 include_directories : '..' / 'common')

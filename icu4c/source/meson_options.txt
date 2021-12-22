@@ -1,0 +1,1 @@
+option('data_packaging', type : 'string', value : 'library', description : 'One of: files (raw individual files), archive (a single .dat file), library (a shared library), static (a static library)')
