@@ -44,3 +44,6 @@ endif
 subdir('stubdata')
 subdir('common')
 subdir('i18n')
+if get_option('enable_icuio')
+  subdir('io')
+endif

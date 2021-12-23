@@ -12,11 +12,15 @@ i18n_sources = run_command(python_exec,
 i18n_shared = shared_library(i18n_shared_name,
                              i18n_sources,
                              cpp_args : [ '-DU_I18N_IMPLEMENTATION' ],
-                             include_directories : '..' / 'common',
-                             link_with : common_shared,
+                             dependencies : common_shared_dep,
                              version : icu_version)
+i18n_shared_dep = declare_dependency(include_directories : include_directories('.'),
+                                     dependencies : common_shared_dep,
+                                     link_with : i18n_shared)
 i18n_static = static_library(i18n_static_name,
                              i18n_sources,
                              cpp_args : [ '-DU_I18N_IMPLEMENTATION', '-DU_STATIC_IMPLEMENTATION' ],
-                             include_directories : '..' / 'common',
-                             link_with : common_static)
+                             dependencies : common_static_dep)
+i18n_static_dep = declare_dependency(include_directories : include_directories('.'),
+                                     dependencies : common_static_dep,
+                                     link_with : i18n_static)
