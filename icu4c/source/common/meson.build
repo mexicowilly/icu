@@ -19,13 +19,11 @@ endif
 common_shared = shared_library(common_shared_name,
                                common_sources,
                                cpp_args : common_args,
-                               include_directories : '.',
                                link_with : stubdata_shared,
                                dependencies : [ thread_dep, libdl_dep, libm_dep ],
                                version : icu_version)
 common_static = static_library(common_static_name,
                                common_sources,
                                cpp_args : common_args + [ '-DU_STATIC_IMPLEMENTATION' ],
-                               include_directories : '.',
                                link_with : stubdata_static,
                                dependencies : [ thread_dep, libdl_dep, libm_dep ])

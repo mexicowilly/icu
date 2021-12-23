@@ -24,11 +24,16 @@ thread_dep = dependency('threads')
 libm_dep = cpp_compiler.find_library('m', required : false)
 
 # Dl library
-libdl_dep = cpp_compiler.find_library('dl', required : false)
+if get_option('enable_dyload')
+  libdl_dep = cpp_compiler.find_library('dl', required : false)
+else
+  add_global_arguments('-DU_ENABLE_DYLOAD=0', language : [ 'cpp', 'c' ])
+  libdl_dep = dependency('')
+endif
 
 # Endianness: There is a fairly complete check for this in common/unicode/platform.h, but
-# this macro is checked in stubdata/stubdata.cpp, so it must be set here.
-add_global_arguments('-DU_IS_BIG_ENDIAN=' + (build_machine.endian() == 'big' ? '1' : '0'), language : ['cpp', 'c'])
+# this macro is used in stubdata/stubdata.cpp, so it must be set here.
+add_global_arguments('-DU_IS_BIG_ENDIAN=' + (build_machine.endian() == 'big' ? '1' : '0'), language : [ 'cpp', 'c' ])
 
 # Validate data packaging
 if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
@@ -38,3 +43,4 @@ endif
 # Subdirectories
 subdir('stubdata')
 subdir('common')
+subdir('i18n')
