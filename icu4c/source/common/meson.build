@@ -1,7 +1,8 @@
 common_shared_name = 'icuuc'
-if build_machine.system() == 'windows'
+if target_machine.system() == 'windows'
   common_shared_name += icu_lib_major_version
 endif
+common_shared_name += library_suffix
 common_static_name = 's' + common_shared_name
 
 common_sources = run_command(python_exec,

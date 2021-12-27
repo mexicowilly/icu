@@ -1,8 +1,9 @@
-if build_machine.system() == 'windows'
+if target_machine.system() == 'windows'
   i18n_shared_name = 'icuin' + icu_lib_major_version
 else
   i18n_shared_name = 'icui18n'
 endif
+i18n_shared_name += library_suffix
 i18n_static_name = 's' + i18n_shared_name
 
 i18n_sources = run_command(python_exec,

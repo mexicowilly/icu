@@ -1,7 +1,8 @@
 io_shared_name = 'icuio'
-if build_machine.system() == 'windows'
+if target_machine.system() == 'windows'
   io_shared_name += icu_lib_major_version
 endif
+io_shared_name += library_suffix
 io_static_name = 's' + io_shared_name
 
 io_sources = run_command(python_exec,

@@ -3,3 +3,13 @@ option('data_packaging', type : 'string', value : 'library', description : 'One 
 option('enable_dyload', type : 'boolean', value : true, description : 'Whether to enable dynamic loading of plugins')
 
 option('enable_icuio', type : 'boolean', value : true, description : 'Whether to build ICU\'s I/O library')
+
+option('enable_plugins', type : 'boolean', value : false, description : 'Whether to enable plugins')
+
+option('enable_renaming', type : 'boolean', value : true, description : 'Whether to add a version suffix to symbols')
+
+option('enable_tools', type : 'boolean', value : true, description : 'Whether to build ICU\'s tools')
+
+option('enable_tracing', type : 'boolean', value : false, description : 'Whether to enable function and data tracing')
+
+option('library_suffix', type : 'string', description : 'Suffix to place on library names')
