@@ -1,7 +1,15 @@
 project('icu', 'c', 'cpp', default_options : ['c_std=c11', 'cpp_std=c++11'])
 
+# Validate data packaging
+if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
+  error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
+endif
+
 # How to run python3
 python_exec = import('python').find_installation()
+
+# TODO: Figure out best way to set output/installation directories: prefix, bindir,
+# datadir, etc....
 
 # Get version numbers
 icu_version = run_command(python_exec,
@@ -58,7 +66,8 @@ if get_option('enable_tracing')
 endif
 
 # elf.h
-if cpp_compiler.check_header('elf.h', required : false)
+# TODO: tools (toolutil, genccode) ONLY
+if cpp_compiler.check_header('elf.h')
   add_project_arguments(cpp_def + 'U_HAVE_ELF_H=1', language : [ 'cpp', 'c' ])
 endif
 
@@ -70,13 +79,8 @@ endif
 # TODO: Figure out genccode assembly language
 
 # inttypes.h
-if not cpp_compiler.check_header('inttypes.h', required : false)
+if not cpp_compiler.check_header('inttypes.h')
   add_project_arguments(cpp_def + 'U_HAVE_INTTYPES_H=0', language : [ 'cpp', 'c' ])
-endif
-
-# dirent.h
-if not cpp_compiler.check_header('dirent.h', required : false)
-  add_project_arguments(cpp_def + 'U_HAVE_DIRENT_H=0', language : [ 'cpp', 'c' ])
 endif
 
 # Endianness
@@ -86,32 +90,73 @@ endif
 # other targets, but it seems more prudent to set it on one place.
 add_project_arguments(cpp_def + 'U_IS_BIG_ENDIAN=' + (target_machine.endian() == 'big' ? '1' : '0'), language : [ 'cpp', 'c' ])
 
-# nl_langinfo CODESET
-if cpp_compiler.check_header('langinfo.h') and cpp_compiler.has_function('nl_langinfo')
-  langinfo_tmpl = '''#include <langinfo.h>
-int main()
-{
-  nl_langinfo(@0@);
-  return 0;
-}'''
-  if cpp_compiler.links(langinfo_tmpl.format('CODESET'))
-    # Do nothing. This is the normal case.
-  elif cpp_compiler.links(langinfo_tmpl.format('_NL_CTYPE_CODESET_NAME'))
-    add_project_arguments(cpp_def + 'NL_LANGINFO_CODESET=_NL_CTYPE_CODESET_NAME', language : [ 'cpp', 'c' ])
-  else
-    add_project_arguments(cpp_def + 'U_HAVE_NL_LANGINFO_CODESET=0', language : [ 'cpp', 'c' ])
-  endif
+# popen
+if not cpp_compiler.has_function('popen')
+  add_project_arguments(cpp_def + 'U_HAVE_POPEN=0', language : [ 'cpp', 'c' ])
 endif
 
-# Validate data packaging
-if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
-  error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
+# NOTE: U_HAVE_STRTOD_L is set but never referenced in the autotools build
+
+# TODO: U_HAVE_STRING_VIEW is only used in test/intltest/strtest.cpp
+
+# stdint.h
+zero_or_one = '0'
+stdint_inc_def = ''
+if cpp_compiler.check_header('stdint.h')
+  zero_or_one = '1'
+  stdint_inc_def = cpp_def + 'U_HAVE_STDINT_H'
+endif
+add_project_arguments(cpp_def + 'U_HAVE_STDINT_H=' + zero_or_one, language : [ 'cpp', 'c' ])
+
+# inttypes.h
+zero_or_one = '0'
+inttypes_inc_def = ''
+if cpp_compiler.check_header('inttypes.h')
+  zero_or_one = '1'
+  inttypes_inc_def = cpp_def + 'U_HAVE_INTTYPES_H'
+endif
+add_project_arguments(cpp_def + 'U_HAVE_INTTYPES_H=' + zero_or_one, language : [ 'cpp', 'c' ])
+
+# Integer types
+int_type_pfx = '''#ifdef U_HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef U_HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif'''
+foreach integer_type : [ 'int8_t', 'uint8_t', 'int16_t', 'int32_t', 'uint32_t', 'int64_t', 'uint64_t' ]
+  if not cpp_compiler.has_type(integer_type, args : [ stdint_inc_def, inttypes_inc_def ], prefix : int_type_pfx)
+    add_project_arguments(cpp_def + 'U_HAVE_' + integer_type.to_upper() + '=0', language : [ 'cpp', 'c' ])
+  endif
+endforeach
+
+# wchar_t
+if cpp_compiler.check_header('wchar.h')
+  add_project_arguments(cpp_def + 'U_HAVE_WCHAR_H=1', language : [ 'cpp', 'c' ])
+  wcs_dep = cpp_compiler.find_library('wcs', required : false)
+  w_dep = cpp_compiler.find_library('w', required : false)
+  if cpp_compiler.has_function('wcscpy', dependencies : [ wcs_dep, w_dep ])
+    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=1', language : [ 'cpp', 'c' ])
+  else
+    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=0', language : [ 'cpp', 'c' ])
+  endif
+  wchar_pfx = '''#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>'''
+  wchar_t_size = cpp_compiler.sizeof('wchar_t', dependencies : [ wcs_dep, w_dep ], prefix : wchar_pfx)
+  if wchar_t_size == -1
+    error('Could not determine size of wchar_t')
+  endif
+  add_project_arguments(cpp_def + 'U_SIZEOF_WCHAR_T=' + wchar_t_size.to_string(), language : [ 'cpp', 'c' ])
+else
+  add_project_arguments([ cpp_def + 'U_HAVE_WCHAR_H=0', cpp_def + 'U_HAVE_WCSCPY=0' ], language : [ 'cpp', 'c' ])
 endif
 
 # Library suffix
 library_suffix = get_option('library_suffix')
 if library_suffix != ''
-  lib_suffix_cname = run_command(python_exec, '-c', 'import re; print(re.sub("[^A-Za-z0-9_]", "_", r"' + library_suffix + '"))').stdout().strip()
+  lib_suffix_cname = library_suffix.underscorify()
   add_project_arguments(cpp_def + 'U_HAVE_LIB_SUFFIX=1', cpp_def + 'U_LIB_SUFFIX_C_NAME=' + lib_suffix_cname, language : [ 'cpp', 'c' ])
 endif
 

@@ -10,11 +10,92 @@ common_sources = run_command(python_exec,
                              'sources.txt').stdout().strip().split(' ')
 
 common_args = [
-  '-DU_COMMON_IMPLEMENTATION',
-  '-DDEFAULT_ICU_PLUGINS=' + get_option('prefix') / get_option('libdir')
+  cpp_def + 'U_COMMON_IMPLEMENTATION',
+  cpp_def + 'DEFAULT_ICU_PLUGINS=' + get_option('prefix') / get_option('libdir')
 ]
 if get_option('data_packaging') == 'archive'
-  common_args += '-DICU_DATA_DEFAULT_DIR=' + get_option('prefix') / get_option('datadir')
+  common_args += cpp_def + 'ICU_DATA_DEFAULT_DIR=' + get_option('prefix') / get_option('datadir')
+endif
+
+# dirent.h
+if not cpp_compiler.check_header('dirent.h')
+  common_args += cpp_def + 'U_HAVE_DIRENT_H=0'
+endif
+
+# nl_langinfo CODESET
+if cpp_compiler.check_header('langinfo.h') and cpp_compiler.has_function('nl_langinfo')
+  langinfo_tmpl = '''#include <langinfo.h>
+int main()
+{
+  nl_langinfo(@0@);
+  return 0;
+}'''
+  if cpp_compiler.links(langinfo_tmpl.format('CODESET'))
+    # Do nothing. This is the normal case.
+  elif cpp_compiler.links(langinfo_tmpl.format('_NL_CTYPE_CODESET_NAME'))
+    common_args += cpp_def + 'NL_LANGINFO_CODESET=_NL_CTYPE_CODESET_NAME'
+  else
+    common_args += cpp_def + 'U_HAVE_NL_LANGINFO_CODESET=0'
+  endif
+endif
+
+# tzset
+zero_or_one = '1'
+if cpp_compiler.has_function('tzset')
+    common_args += cpp_def + 'U_TZSET=tzset'
+elif cpp_compiler.has_function('_tzset')
+    common_args += cpp_def + 'U_TZSET=_tzset'
+else
+    zero_or_one = '0'
+endif
+common_args += cpp_def + 'U_HAVE_TZSET=' + zero_or_one
+
+# tzname
+zero_or_one = '1'
+common_tzname_src = '''#ifndef _XOPEN_SOURCE
+  #define _XOPEN_SOURCE
+#endif
+#include <stdlib.h>
+#include <time.h>
+#ifndef @0@
+  extern char* @0@[];
+#endif
+int main()
+{
+  atoi(*@0@);
+  return 0;
+}'''
+if cpp_compiler.links(common_tzname_src.format('tzname'))
+  common_args += cpp_def + 'U_TZNAME=tzname'
+elif cpp_compiler.links(common_tzname_src.format('_tzname'))
+  common_args += cpp_def + 'U_TZNAME=_tzname'
+else
+  zero_or_one = '0'
+endif
+common_args += cpp_def + 'U_HAVE_TZNAME=' + zero_or_one
+
+# timezone
+timezone_src = '''#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif
+#include <time.h>
+int main()
+{
+  @0@ = 1;
+  return 0;
+}'''
+tz_var_name = ''
+zero_or_one = '0'
+foreach tz_try : [ 'timezone', '_timezone', '__timezone' ]
+  if cpp_compiler.links(timezone_src.format(tz_try))
+    tz_var_name = tz_try
+    zero_or_one = '1'
+    break
+  endif
+endforeach
+common_args += cpp_def + 'U_HAVE_TIMEZONE=' + zero_or_one
+if tz_var_name != ''
+  common_args += cpp_def + 'U_TIMEZONE=' + tz_var_name
 endif
 
 common_deps = [ thread_dep, libdl_dep, libm_dep ]
