@@ -52,7 +52,7 @@ if get_option('enable_dyload')
   endif
 else
   add_project_arguments(cpp_def + 'U_ENABLE_DYLOAD=0', language : [ 'cpp', 'c' ])
-  libdl_dep = dependency('')
+  libdl_dep = dependency('', required : false)
 endif
 
 # Whether to enable renaming
@@ -77,11 +77,6 @@ if get_option('enable_plugins')
 endif
 
 # TODO: Figure out genccode assembly language
-
-# inttypes.h
-if not cpp_compiler.check_header('inttypes.h')
-  add_project_arguments(cpp_def + 'U_HAVE_INTTYPES_H=0', language : [ 'cpp', 'c' ])
-endif
 
 # Endianness
 # There is a fairly complete check for this in common/unicode/platform.h, but
@@ -153,6 +148,21 @@ else
   add_project_arguments([ cpp_def + 'U_HAVE_WCHAR_H=0', cpp_def + 'U_HAVE_WCSCPY=0' ], language : [ 'cpp', 'c' ])
 endif
 
+# Find out if we need to use compiler arguments to get UTF16 literal strings
+# IBM's compiler
+if cpp_compiler.has_argument('-qutf')
+  if not cpp_compiler.links('int main() { const unsigned short hello[] = u"hello"; return 0; }', args : [ '-qutf' ])
+    error('Compiler argument -qutf is supported but does not link')
+  endif
+  add_project_arguments('-qutf', language : [ 'cpp', 'c' ])
+# Sun/Oracle's compiler
+elif cpp_compiler.has_argument('-xustr=ascii_utf16_ushort')
+  if not cpp_compiler.links('int main() { const unsigned short hello[] = U"hello"; return 0; }', args : [ '-xustr=ascii_utf16_ushort' ])
+    error('Compiler argument -xustr=ascii_utf16_ushort is supported but does not link')
+  endif
+  add_project_arguments('-xustr=ascii_utf16_ushort', language : [ 'cpp', 'c' ])
+endif
+
 # Library suffix
 library_suffix = get_option('library_suffix')
 if library_suffix != ''
@@ -165,6 +175,11 @@ if target_machine.system() == 'windows' and get_option('buildtype').contains('de
   library_suffix += 'd'
 endif
 
+# Convenience variables for deciding which libraries to build
+default_library_option = get_option('default_library')
+build_shared = default_library_option == 'shared' or default_library_option == 'both'
+build_static = default_library_option == 'static' or default_library_option == 'both'
+
 # Subdirectories
 subdir('stubdata')
 subdir('common')
@@ -173,3 +188,4 @@ if get_option('enable_icuio')
   subdir('io')
 endif
 # TODO: Put layoutex here
+subdir('tools')
