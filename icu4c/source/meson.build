@@ -65,12 +65,6 @@ if get_option('enable_tracing')
   add_project_arguments(cpp_def + 'U_ENABLE_TRACING=1', language : [ 'cpp', 'c' ])
 endif
 
-# elf.h
-# TODO: tools (toolutil, genccode) ONLY
-if cpp_compiler.check_header('elf.h')
-  add_project_arguments(cpp_def + 'U_HAVE_ELF_H=1', language : [ 'cpp', 'c' ])
-endif
-
 # Whether to enable plugins
 if get_option('enable_plugins')
   add_project_arguments(cpp_def + 'UCONFIG_ENABLE_PLUGINS=1', language : [ 'cpp', 'c' ])

@@ -23,6 +23,10 @@ toolutil_args = [
   cpp_def + 'UNISTR_FROM_STRING_EXPLICIT=explicit'
 ]
 
+if cpp_compiler.check_header('elf.h')
+  toolutil_args += [ cpp_def + 'U_HAVE_ELF_H=1' ]
+endif
+
 if build_shared
   toolutil_shared = shared_library(toolutil_shared_name,
                                    toolutil_sources,
