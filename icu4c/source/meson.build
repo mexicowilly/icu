@@ -1,5 +1,8 @@
 project('icu', 'c', 'cpp', default_options : ['c_std=c11', 'cpp_std=c++11'])
 
+# Language argument for project arguments
+project_lang = [ 'cpp', 'c' ]
+
 # Validate data packaging
 if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
   error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
@@ -35,6 +38,15 @@ libm_dep = cpp_compiler.find_library('m', required : false)
 # How to add defines for the compiler
 cpp_def = (cpp_compiler.get_argument_syntax() == 'msvc') ? '/D' : '-D'
 
+# We want to disable warnings about deprecated functions
+# The autotools build always defines this.
+add_project_arguments(cpp_def + 'U_ATTRIBUTE_DEPRECATED=', language : project_lang)
+
+# Debug build?
+if get_option('buildtype').contains('debug')
+  add_project_arguments(cpp_def + 'U_DEBUG=1', language : project_lang)
+endif
+
 # DL library
 # This level of checking works for POSIX and Windows, because there are checks
 # in common/putil.cpp for DL-related stuff, and the only thing that Windows
@@ -42,48 +54,51 @@ cpp_def = (cpp_compiler.get_argument_syntax() == 'msvc') ? '/D' : '-D'
 if get_option('enable_dyload')
   # This is not necessary on POSIX, because you only need to turn it off. But
   # Windows will need it set.
-  add_project_arguments(cpp_def + 'U_ENABLE_DYLOAD=1', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_ENABLE_DYLOAD=1', language : project_lang)
   libdl_dep = cpp_compiler.find_library('dl', required : false)
   if libdl_dep.found()
     cpp_compiler.check_header('dlfcn.h', required : true)
     if not cpp_compiler.has_function('dlopen', dependencies : [ libdl_dep ])
-      add_project_arguments(cpp_def + 'HAVE_DLOPEN=0', language : [ 'cpp', 'c' ])
+      add_project_arguments(cpp_def + 'HAVE_DLOPEN=0', language : project_lang)
     endif
   endif
 else
-  add_project_arguments(cpp_def + 'U_ENABLE_DYLOAD=0', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_ENABLE_DYLOAD=0', language : project_lang)
   libdl_dep = dependency('', required : false)
 endif
 
 # Whether to enable renaming
 if not get_option('enable_renaming')
-  add_project_arguments(cpp_def + 'U_DISABLE_RENAMING=1', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_DISABLE_RENAMING=1', language : project_lang)
 endif
 
 # Whether to enable tracing
 if get_option('enable_tracing')
-  add_project_arguments(cpp_def + 'U_ENABLE_TRACING=1', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_ENABLE_TRACING=1', language : project_lang)
 endif
 
 # Whether to enable plugins
 if get_option('enable_plugins')
-  add_project_arguments(cpp_def + 'UCONFIG_ENABLE_PLUGINS=1', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'UCONFIG_ENABLE_PLUGINS=1', language : project_lang)
 endif
 
-# TODO: Figure out genccode assembly language
+# TODO: Figure out genccode assembly language. It appears that the variable,
+# GENCCODE_ASSEMBLY, is set but never used. It may be an artifact from an earlier
+# version of the autotools build.
 
 # Endianness
 # There is a fairly complete check for this in common/unicode/platform.h, but
 # this macro is used in stubdata/stubdata.cpp, so it must be set here. It would
 # be possible to set it only for stubdata and let platform.h take care of it for
 # other targets, but it seems more prudent to set it on one place.
-add_project_arguments(cpp_def + 'U_IS_BIG_ENDIAN=' + (target_machine.endian() == 'big' ? '1' : '0'), language : [ 'cpp', 'c' ])
+add_project_arguments(cpp_def + 'U_IS_BIG_ENDIAN=' + (target_machine.endian() == 'big' ? '1' : '0'), language : project_lang)
 
 # popen
 if not cpp_compiler.has_function('popen')
-  add_project_arguments(cpp_def + 'U_HAVE_POPEN=0', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_HAVE_POPEN=0', language : project_lang)
 endif
 
+# NOTE: U_HAVE_XLOCALE is set but never referenced in the autotools build
 # NOTE: U_HAVE_STRTOD_L is set but never referenced in the autotools build
 
 # TODO: U_HAVE_STRING_VIEW is only used in test/intltest/strtest.cpp
@@ -95,7 +110,7 @@ if cpp_compiler.check_header('stdint.h')
   zero_or_one = '1'
   stdint_inc_def = cpp_def + 'U_HAVE_STDINT_H'
 endif
-add_project_arguments(cpp_def + 'U_HAVE_STDINT_H=' + zero_or_one, language : [ 'cpp', 'c' ])
+add_project_arguments(cpp_def + 'U_HAVE_STDINT_H=' + zero_or_one, language : project_lang)
 
 # inttypes.h
 zero_or_one = '0'
@@ -104,7 +119,7 @@ if cpp_compiler.check_header('inttypes.h')
   zero_or_one = '1'
   inttypes_inc_def = cpp_def + 'U_HAVE_INTTYPES_H'
 endif
-add_project_arguments(cpp_def + 'U_HAVE_INTTYPES_H=' + zero_or_one, language : [ 'cpp', 'c' ])
+add_project_arguments(cpp_def + 'U_HAVE_INTTYPES_H=' + zero_or_one, language : project_lang)
 
 # Integer types
 int_type_pfx = '''#ifdef U_HAVE_STDINT_H
@@ -115,19 +130,19 @@ int_type_pfx = '''#ifdef U_HAVE_STDINT_H
 #endif'''
 foreach integer_type : [ 'int8_t', 'uint8_t', 'int16_t', 'int32_t', 'uint32_t', 'int64_t', 'uint64_t' ]
   if not cpp_compiler.has_type(integer_type, args : [ stdint_inc_def, inttypes_inc_def ], prefix : int_type_pfx)
-    add_project_arguments(cpp_def + 'U_HAVE_' + integer_type.to_upper() + '=0', language : [ 'cpp', 'c' ])
+    add_project_arguments(cpp_def + 'U_HAVE_' + integer_type.to_upper() + '=0', language : project_lang)
   endif
 endforeach
 
 # wchar_t
 if cpp_compiler.check_header('wchar.h')
-  add_project_arguments(cpp_def + 'U_HAVE_WCHAR_H=1', language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_HAVE_WCHAR_H=1', language : project_lang)
   wcs_dep = cpp_compiler.find_library('wcs', required : false)
   w_dep = cpp_compiler.find_library('w', required : false)
   if cpp_compiler.has_function('wcscpy', dependencies : [ wcs_dep, w_dep ])
-    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=1', language : [ 'cpp', 'c' ])
+    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=1', language : project_lang)
   else
-    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=0', language : [ 'cpp', 'c' ])
+    add_project_arguments(cpp_def + 'U_HAVE_WCSCPY=0', language : project_lang)
   endif
   wchar_pfx = '''#include <stddef.h>
 #include <stdlib.h>
@@ -137,9 +152,9 @@ if cpp_compiler.check_header('wchar.h')
   if wchar_t_size == -1
     error('Could not determine size of wchar_t')
   endif
-  add_project_arguments(cpp_def + 'U_SIZEOF_WCHAR_T=' + wchar_t_size.to_string(), language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_SIZEOF_WCHAR_T=' + wchar_t_size.to_string(), language : project_lang)
 else
-  add_project_arguments([ cpp_def + 'U_HAVE_WCHAR_H=0', cpp_def + 'U_HAVE_WCSCPY=0' ], language : [ 'cpp', 'c' ])
+  add_project_arguments([ cpp_def + 'U_HAVE_WCHAR_H=0', cpp_def + 'U_HAVE_WCSCPY=0' ], language : project_lang)
 endif
 
 # Find out if we need to use compiler arguments to get UTF16 literal strings
@@ -148,20 +163,23 @@ if cpp_compiler.has_argument('-qutf')
   if not cpp_compiler.links('int main() { const unsigned short hello[] = u"hello"; return 0; }', args : [ '-qutf' ])
     error('Compiler argument -qutf is supported but does not link')
   endif
-  add_project_arguments('-qutf', language : [ 'cpp', 'c' ])
+  add_project_arguments('-qutf', language : project_lang)
 # Sun/Oracle's compiler
 elif cpp_compiler.has_argument('-xustr=ascii_utf16_ushort')
   if not cpp_compiler.links('int main() { const unsigned short hello[] = U"hello"; return 0; }', args : [ '-xustr=ascii_utf16_ushort' ])
     error('Compiler argument -xustr=ascii_utf16_ushort is supported but does not link')
   endif
-  add_project_arguments('-xustr=ascii_utf16_ushort', language : [ 'cpp', 'c' ])
+  add_project_arguments('-xustr=ascii_utf16_ushort', language : project_lang)
 endif
+
+# TODO: Some compiler options that are set in autotools are still not set here.
+# Check configure.ac
 
 # Library suffix
 library_suffix = get_option('library_suffix')
 if library_suffix != ''
   lib_suffix_cname = library_suffix.underscorify()
-  add_project_arguments(cpp_def + 'U_HAVE_LIB_SUFFIX=1', cpp_def + 'U_LIB_SUFFIX_C_NAME=' + lib_suffix_cname, language : [ 'cpp', 'c' ])
+  add_project_arguments(cpp_def + 'U_HAVE_LIB_SUFFIX=1', cpp_def + 'U_LIB_SUFFIX_C_NAME=' + lib_suffix_cname, language : project_lang)
 endif
 
 # Windows debug suffix
