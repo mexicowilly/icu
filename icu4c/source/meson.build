@@ -1,18 +1,8 @@
-project('icu', 'c', 'cpp', default_options : ['c_std=c11', 'cpp_std=c++11'])
-
-# Language argument for project arguments
-project_lang = [ 'cpp', 'c' ]
-
-# Validate data packaging
-if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
-  error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
-endif
+project('icu', 'c', 'cpp',
+        default_options : [ 'c_std=c11', 'cpp_std=c++11' ])
 
 # How to run python3
 python_exec = import('python').find_installation()
-
-# TODO: Figure out best way to set output/installation directories: prefix, bindir,
-# datadir, etc....
 
 # Get version numbers
 icu_version = run_command(python_exec,
@@ -24,6 +14,17 @@ unicode_version = run_command(python_exec,
                               'meson' / 'version_number.py',
                               'common' / 'unicode' / 'uchar.h',
                               'U_UNICODE_VERSION').stdout().strip()
+
+# Language argument for project arguments
+project_lang = [ 'cpp', 'c' ]
+
+# Validate data packaging
+if not [ 'files', 'archive', 'library', 'static' ].contains(get_option('data_packaging'))
+  error('Invalid data_packaging "' + get_option('data_packaging') + '". Must be one of: files, archive, library or static.')
+endif
+
+# TODO: Figure out best way to set output/installation directories: prefix, bindir,
+# datadir, etc....
 
 # C++ compiler
 cpp_compiler = meson.get_compiler('cpp')
