@@ -106,7 +106,7 @@ if build_shared
                                  cpp_args : common_args,
                                  dependencies : [ stubdata_shared_dep ] + common_deps,
                                  version : icu_version)
-  common_shared_dep = declare_dependency(dependencies : common_deps,
+  common_shared_dep = declare_dependency(dependencies : [ stubdata_shared_dep] + common_deps,
                                          include_directories : include_directories('.'),
                                          link_with : common_shared)
 else
@@ -118,7 +118,7 @@ if build_static
                                  common_sources,
                                  cpp_args : common_args + [ '-DU_STATIC_IMPLEMENTATION' ],
                                  dependencies : [ stubdata_static_dep ] + common_deps)
-  common_static_dep = declare_dependency(dependencies : common_deps,
+  common_static_dep = declare_dependency(dependencies : [ stubdata_static_dep ] + common_deps,
                                          include_directories : include_directories('.'),
                                          link_with : common_static)
 else
